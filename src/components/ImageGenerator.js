@@ -122,6 +122,44 @@ const GeneratedImage = styled.img`
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   margin-top: 1rem;
+  transition: opacity 0.3s ease;
+  
+  &.loading {
+    opacity: 0.5;
+  }
+`;
+
+const ImageContainer = styled.div`
+  position: relative;
+  display: inline-block;
+  width: 100%;
+`;
+
+const ImageLoadingOverlay = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1rem;
+  border-radius: 8px;
+  display: ${props => props.show ? 'block' : 'none'};
+`;
+
+const DownloadButton = styled.button`
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s ease;
+
+  &:hover {
+    background: #059669;
+  }
 `;
 
 const ErrorMessage = styled.div`
@@ -133,13 +171,26 @@ const ErrorMessage = styled.div`
   margin-top: 1rem;
 `;
 
-const SuccessMessage = styled.div`
-  background: #efe;
-  border: 1px solid #cfc;
-  color: #3c3;
+const LoadingMessage = styled.div`
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 1px solid #f39c12;
+  color: #d68910;
   padding: 1rem;
   border-radius: 8px;
   margin-top: 1rem;
+  text-align: center;
+  font-weight: 500;
+`;
+
+const SuccessMessage = styled.div`
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border: 1px solid #28a745;
+  color: #155724;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  text-align: center;
+  font-weight: 500;
 `;
 
 const ImageGenerator = () => {
@@ -147,6 +198,8 @@ const ImageGenerator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
   const [error, setError] = useState('');
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -157,14 +210,39 @@ const ImageGenerator = () => {
     setIsLoading(true);
     setError('');
     setGeneratedImage(null);
+    setImageLoading(false);
+    setImageLoaded(false);
 
     try {
       const imageUrl = await generateImage(prompt);
       setGeneratedImage(imageUrl);
+      setImageLoading(true); // Start loading the image
     } catch (err) {
       setError(err.message || 'Failed to generate image. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageLoaded(true);
+  };
+
+  const handleImageError = () => {
+    setImageLoading(false);
+    setImageLoaded(false);
+    setError('Failed to load the generated image. Please try again.');
+  };
+
+  const handleDownload = () => {
+    if (generatedImage) {
+      const link = document.createElement('a');
+      link.href = generatedImage;
+      link.download = `ai-generated-${Date.now()}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -205,14 +283,48 @@ const ImageGenerator = () => {
       </GenerateButton>
 
       <ResultSection>
-        {isLoading && <LoadingSpinner />}
+        {isLoading && (
+          <>
+            <LoadingSpinner />
+            <LoadingMessage>🎨 Generating your AI image...</LoadingMessage>
+          </>
+        )}
         
         {error && <ErrorMessage>{error}</ErrorMessage>}
         
-        {generatedImage && (
+        {generatedImage && !isLoading && (
           <>
-            <SuccessMessage>Image generated successfully!</SuccessMessage>
-            <GeneratedImage src={generatedImage} alt="Generated" />
+            {imageLoading && (
+              <>
+                <LoadingSpinner />
+                <LoadingMessage>📸 Loading your generated image...</LoadingMessage>
+              </>
+            )}
+            
+            {imageLoaded && !imageLoading && (
+              <SuccessMessage>✅ Image generated and loaded successfully!</SuccessMessage>
+            )}
+            
+            <ImageContainer>
+              <GeneratedImage 
+                src={generatedImage} 
+                alt="Generated AI Image"
+                className={imageLoading ? 'loading' : ''}
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+                style={{ display: imageLoading ? 'none' : 'block' }}
+              />
+              <ImageLoadingOverlay show={imageLoading}>
+                <LoadingSpinner />
+                <p>Loading image...</p>
+              </ImageLoadingOverlay>
+            </ImageContainer>
+            
+            {imageLoaded && !imageLoading && (
+              <DownloadButton onClick={handleDownload}>
+                📥 Download Image
+              </DownloadButton>
+            )}
           </>
         )}
       </ResultSection>
